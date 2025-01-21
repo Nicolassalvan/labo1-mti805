@@ -1,76 +1,93 @@
 import face_recognition
 import imutils
 import pickle
-import time
 import cv2
 import os
 
-# Environment path
+# Path to face encodings
 faceenc_path = "FaceRecognition/face_enc"
- 
-#find path of xml file containing haarcascade file 
-cascPathface = os.path.dirname(
- cv2.__file__) + "/data/haarcascade_frontalface_alt2.xml"
-# load the harcaascade in the cascade classifier
+
+# Find path of XML files containing Haarcascade files
+cascPathface = os.path.dirname(cv2.__file__) + "/data/haarcascade_frontalface_alt2.xml"
+cascPatheye = os.path.dirname(cv2.__file__) + "/data/haarcascade_eye.xml"
+cascPathsmile = os.path.dirname(cv2.__file__) + "/data/haarcascade_smile.xml"
+
+# Load Haarcascade classifiers
 faceCascade = cv2.CascadeClassifier(cascPathface)
-# load the known faces and embeddings saved in last file
+eyeCascade = cv2.CascadeClassifier(cascPatheye)
+smileCascade = cv2.CascadeClassifier(cascPathsmile)
+
+# Load the known faces and embeddings saved in the last file
 data = pickle.loads(open(faceenc_path, "rb").read())
- 
+
 print("Streaming started")
 video_capture = cv2.VideoCapture(0)
-# loop over frames from the video file stream
+video_capture.set(3, 640)  # Set width
+video_capture.set(4, 480)  # Set height
+
 while True:
-    # grab the frame from the threaded video stream
     ret, frame = video_capture.read()
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = faceCascade.detectMultiScale(gray,
-                                         scaleFactor=1.1,
-                                         minNeighbors=5,
-                                         minSize=(60, 60),
-                                         flags=cv2.CASCADE_SCALE_IMAGE)
- 
-    # convert the input frame from BGR to RGB 
+    faces = faceCascade.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(60, 60),
+        flags=cv2.CASCADE_SCALE_IMAGE
+    )
+
+    # Convert the input frame from BGR to RGB
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    # the facial embeddings for face in input
+    # Get the facial embeddings for faces in the input
     encodings = face_recognition.face_encodings(rgb)
     names = []
-    # loop over the facial embeddings incase
-    # we have multiple embeddings for multiple fcaes
+
+    # Loop over the facial embeddings for multiple faces
     for encoding in encodings:
-       #Compare encodings with encodings in data["encodings"]
-       #Matches contain array with boolean values and True for the embeddings it matches closely
-       #and False for rest
-        matches = face_recognition.compare_faces(data["encodings"],
-         encoding)
-        #set name =inknown if no encoding matches
+        # Compare encodings with those in data["encodings"]
+        matches = face_recognition.compare_faces(data["encodings"], encoding)
         name = "Unknown"
-        # check to see if we have found a match
         if True in matches:
-            #Find positions at which we get True and store them
             matchedIdxs = [i for (i, b) in enumerate(matches) if b]
             counts = {}
-            # loop over the matched indexes and maintain a count for
-            # each recognized face face
             for i in matchedIdxs:
-                # Check the names at respective indexes we stored in matchedIdxs
                 name = data["names"][i]
-                # Increase count for the name we got
                 counts[name] = counts.get(name, 0) + 1
-            #set name which has highest count
             name = max(counts, key=counts.get)
- 
- 
-        # update the list of names
+
         names.append(name)
-        # loop over the recognized faces
-        for ((x, y, w, h), name) in zip(faces, names):
-            # rescale the face coordinates
-            # draw the predicted face name on the image
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.putText(frame, name, (x, y), cv2.FONT_HERSHEY_SIMPLEX,
-             0.75, (0, 255, 0), 2)
+
+    # Loop over the detected faces
+    for ((x, y, w, h), name) in zip(faces, names):
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+        cv2.putText(frame, name, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 0, 0), 2)
+        roi_gray = gray[y:y + h, x:x + w]
+        roi_color = frame[y:y + h, x:x + w]
+
+        # Detect eyes within the face ROI
+        eyes = eyeCascade.detectMultiScale(
+            roi_gray,
+            scaleFactor=1.5,
+            minNeighbors=5,
+            minSize=(5, 5),
+        )
+        for (ex, ey, ew, eh) in eyes:
+            cv2.rectangle(roi_color, (ex, ey), (ex + ew, ey + eh), (0, 255, 0), 2)
+
+        # Detect smiles within the face ROI
+        smile = smileCascade.detectMultiScale(
+            roi_gray,
+            scaleFactor=1.5,
+            minNeighbors=15,
+            minSize=(25, 25),
+        )
+        for (sx, sy, sw, sh) in smile:
+            cv2.rectangle(roi_color, (sx, sy), (sx + sw, sy + sh), (0, 255, 255), 2)
+
+    # Display the output
     cv2.imshow("Frame", frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+
 video_capture.release()
 cv2.destroyAllWindows()
