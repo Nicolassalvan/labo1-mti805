@@ -1,0 +1,1 @@
+https://www.mygreatlearning.com/blog/face-recognition/#how-to-install-opencv-for-python-only-for-face-recognition
