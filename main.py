@@ -58,8 +58,34 @@ def compare_example():
     cv2.destroyAllWindows()
 
 
+def webcam_example():
+    cap = cv2.VideoCapture(0)
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Can't receive frame (stream end?). Exiting ...")
+            break
+
+        # convert to rgb
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img_encodings = face_recognition.face_encodings(rgb_frame)
+        
+
+        # Show the image 
+        cv2.imshow('Webcam', frame)
+        if cv2.waitKey(1) == ord('q'):
+            break
+        if cv2.getWindowProperty('Webcam', cv2.WND_PROP_VISIBLE) < 1:
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
 
 
 if __name__ == "__main__":
     # loading_image_example()
-    compare_example()
+    # compare_example()
+    webcam_example()
+
